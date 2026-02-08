@@ -129,6 +129,10 @@ export class RemotePlayer {
     return sprite;
   }
 
+  setTarget(x: number, y: number, z: number, rx: number, ry: number): void {
+    this.pushPosition(x, y, z, rx, ry);
+  }
+
   pushPosition(x: number, y: number, z: number, rx: number, ry: number): void {
     this.positionBuffer.push({
       x, y, z, rx, ry,
