@@ -10,6 +10,8 @@ export class BlockInteraction {
   private targetBlock: { x: number; y: number; z: number } | null = null;
   private adjacentBlock: { x: number; y: number; z: number } | null = null;
   selectedBlockType: BlockType = BlockType.Grass;
+  onBlockBreak: ((x: number, y: number, z: number, blockType: BlockType) => void) | null = null;
+  onBlockPlace: ((x: number, y: number, z: number, blockType: BlockType) => void) | null = null;
   private playerController: PlayerController;
 
   constructor(scene: THREE.Scene, playerController: PlayerController) {
@@ -129,7 +131,11 @@ export class BlockInteraction {
   private breakBlock(): void {
     if (!this.targetBlock || !this.chunkManager) return;
     const { x, y, z } = this.targetBlock;
+    const blockType = this.chunkManager.getBlock(x, y, z) as BlockType;
     this.chunkManager.setBlock(x, y, z, BlockType.Air);
+    if (this.onBlockBreak && blockType !== BlockType.Air) {
+      this.onBlockBreak(x, y, z, blockType);
+    }
   }
 
   private placeBlock(): void {
@@ -142,5 +148,6 @@ export class BlockInteraction {
     }
 
     this.chunkManager.setBlock(x, y, z, this.selectedBlockType);
+    this.onBlockPlace?.(x, y, z, this.selectedBlockType);
   }
 }

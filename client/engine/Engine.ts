@@ -5,6 +5,8 @@ import { BlockInteraction } from '../player/BlockInteraction';
 import { HUD } from '../ui/HUD';
 import { SkySystem } from '../rendering/SkySystem';
 import { BlockParticles } from '../rendering/BlockParticles';
+import { NPCRenderer } from '../entities/NPCRenderer';
+import type { NpcUpdateMessage } from '../../shared/Protocol';
 
 const SKY_COLOR = 0x87CEEB;
 const FOG_NEAR = 100;
@@ -13,12 +15,16 @@ const MAX_DT = 0.1; // 100ms cap
 
 export class Engine {
   private renderer!: THREE.WebGLRenderer;
-  private camera!: THREE.PerspectiveCamera;
-  private scene!: THREE.Scene;
-  private chunkManager!: ChunkManager;
-  private playerController!: PlayerController;
-  private blockInteraction!: BlockInteraction;
-  private hud!: HUD;
+  camera!: THREE.PerspectiveCamera;
+  scene!: THREE.Scene;
+  chunkManager!: ChunkManager;
+  playerController!: PlayerController;
+  blockInteraction!: BlockInteraction;
+  hud!: HUD;
+  private skySystem!: SkySystem;
+  private blockParticles!: BlockParticles;
+  private npcRenderer!: NPCRenderer;
+  private lastNpcData: NpcUpdateMessage['npcs'] = [];
   private lastTime = 0;
 
   init(): void {
@@ -51,11 +57,23 @@ export class Engine {
     const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x362907, 0.3);
     this.scene.add(hemiLight);
 
+    // SkySystem takes over lighting (removes the lights above and manages its own)
+    this.skySystem = new SkySystem(this.scene);
+
+    // Block destruction particles
+    this.blockParticles = new BlockParticles(this.scene);
+
+    // NPC rendering
+    this.npcRenderer = new NPCRenderer(this.scene);
+
     // Subsystems
     const seed = 12345;
     this.chunkManager = new ChunkManager(this.scene, seed);
     this.playerController = new PlayerController(this.camera, canvas);
     this.blockInteraction = new BlockInteraction(this.scene, this.playerController);
+    this.blockInteraction.onBlockBreak = (x, y, z, blockType) => {
+      this.blockParticles.spawnAt(x, y, z, blockType);
+    };
     this.hud = new HUD((blockType) => {
       this.blockInteraction.selectedBlockType = blockType;
     });
@@ -66,10 +84,6 @@ export class Engine {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    // Hide connection screen
-    const connectionScreen = document.getElementById('connection-screen');
-    if (connectionScreen) connectionScreen.style.display = 'none';
 
     // Start loop
     this.lastTime = performance.now();
@@ -89,6 +103,8 @@ export class Engine {
 
   private update(dt: number): void {
     this.playerController.update(dt, this.chunkManager);
+    this.skySystem.update(dt);
+    this.blockParticles.update(dt);
 
     const pos = this.playerController.getPosition();
     this.chunkManager.update(pos.x, pos.z);
