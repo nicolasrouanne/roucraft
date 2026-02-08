@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { ChunkManager } from '../world/ChunkManager';
 import { PlayerController } from '../player/PlayerController';
+import { BlockInteraction } from '../player/BlockInteraction';
+import { HUD } from '../ui/HUD';
+import { SkySystem } from '../rendering/SkySystem';
+import { BlockParticles } from '../rendering/BlockParticles';
 
 const SKY_COLOR = 0x87CEEB;
 const FOG_NEAR = 100;
@@ -13,6 +17,8 @@ export class Engine {
   private scene!: THREE.Scene;
   private chunkManager!: ChunkManager;
   private playerController!: PlayerController;
+  private blockInteraction!: BlockInteraction;
+  private hud!: HUD;
   private lastTime = 0;
 
   init(): void {
@@ -49,6 +55,10 @@ export class Engine {
     const seed = 12345;
     this.chunkManager = new ChunkManager(this.scene, seed);
     this.playerController = new PlayerController(this.camera, canvas);
+    this.blockInteraction = new BlockInteraction(this.scene, this.playerController);
+    this.hud = new HUD((blockType) => {
+      this.blockInteraction.selectedBlockType = blockType;
+    });
 
     // Resize handler
     window.addEventListener('resize', () => {
@@ -78,9 +88,21 @@ export class Engine {
   };
 
   private update(dt: number): void {
-    this.playerController.update(dt);
+    this.playerController.update(dt, this.chunkManager);
 
     const pos = this.playerController.getPosition();
     this.chunkManager.update(pos.x, pos.z);
+
+    this.blockInteraction.update(this.camera, this.chunkManager);
+
+    // HUD visibility based on pointer lock
+    if (this.playerController.isLocked) {
+      this.hud.show();
+    } else {
+      this.hud.hide();
+    }
+
+    this.hud.updateFps();
+    this.hud.updateCoords(pos.x, pos.y, pos.z);
   }
 }
