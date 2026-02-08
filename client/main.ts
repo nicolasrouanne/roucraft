@@ -1,2 +1,4 @@
-console.log('RouCraft initializing...');
-// Engine will be initialized here in Phase 1B
+import { Engine } from './engine/Engine';
+
+const engine = new Engine();
+engine.init();
