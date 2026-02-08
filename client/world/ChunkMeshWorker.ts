@@ -180,19 +180,19 @@ function meshChunkData(
             const ov = cornerOffsets[c][1];
 
             const s1Pos = [0, 0, 0];
-            s1Pos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
+            s1Pos[face.d] = d;
             s1Pos[face.u] = cu + ou;
             s1Pos[face.v] = cv;
             const s1 = isSolid(getBlock(chunkData, neighbors, s1Pos[0], s1Pos[1], s1Pos[2]));
 
             const s2Pos = [0, 0, 0];
-            s2Pos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
+            s2Pos[face.d] = d;
             s2Pos[face.u] = cu;
             s2Pos[face.v] = cv + ov;
             const s2 = isSolid(getBlock(chunkData, neighbors, s2Pos[0], s2Pos[1], s2Pos[2]));
 
             const cPos = [0, 0, 0];
-            cPos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
+            cPos[face.d] = d;
             cPos[face.u] = cu + ou;
             cPos[face.v] = cv + ov;
             const cr = isSolid(getBlock(chunkData, neighbors, cPos[0], cPos[1], cPos[2]));

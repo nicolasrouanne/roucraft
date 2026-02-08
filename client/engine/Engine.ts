@@ -69,6 +69,11 @@ export class Engine {
     // NPC rendering
     this.npcRenderer = new NPCRenderer(this.scene);
 
+    // Sound
+    this.soundManager = new SoundManager();
+    const settings = loadSettings();
+    this.soundManager.volume = settings.volume;
+
     // Subsystems
     const seed = 12345;
     this.chunkManager = new ChunkManager(this.scene, seed);
@@ -76,6 +81,10 @@ export class Engine {
     this.blockInteraction = new BlockInteraction(this.scene, this.playerController);
     this.blockInteraction.onBlockBreak = (x, y, z, blockType) => {
       this.blockParticles.spawnAt(x, y, z, blockType);
+      this.soundManager.playBreak();
+    };
+    this.blockInteraction.onBlockPlace = (_x, _y, _z, _blockType) => {
+      this.soundManager.playPlace();
     };
     this.hud = new HUD((blockType) => {
       this.blockInteraction.selectedBlockType = blockType;
@@ -129,5 +138,12 @@ export class Engine {
 
   handleNpcUpdate(data: NpcUpdateMessage): void {
     this.lastNpcData = data.npcs;
+  }
+
+  applySettings(settings: GameSettings): void {
+    this.camera.fov = settings.fov;
+    this.camera.updateProjectionMatrix();
+    this.soundManager.volume = settings.volume;
+    this.playerController.mouseSensitivity = settings.mouseSensitivity;
   }
 }

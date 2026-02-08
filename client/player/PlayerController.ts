@@ -22,6 +22,7 @@ export class PlayerController {
   private yaw = 0;
   private keys = new Set<string>();
   isLocked = false;
+  mouseSensitivity = 1.0;
   private isOnGround = false;
   private spawned = false;
 
@@ -43,8 +44,8 @@ export class PlayerController {
     // Mouse look
     document.addEventListener('mousemove', (e) => {
       if (!this.isLocked) return;
-      this.yaw -= e.movementX * LOOK_SENSITIVITY;
-      this.pitch -= e.movementY * LOOK_SENSITIVITY;
+      this.yaw -= e.movementX * LOOK_SENSITIVITY * this.mouseSensitivity;
+      this.pitch -= e.movementY * LOOK_SENSITIVITY * this.mouseSensitivity;
       this.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitch));
     });
 
