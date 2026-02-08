@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
+import { NetworkManager } from './network/NetworkManager.js';
 
 const app = express();
 const server = createServer(app);
@@ -8,13 +9,15 @@ const wss = new WebSocketServer({ server });
 
 const PORT = 3001;
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', game: 'RouCraft' });
-});
+const networkManager = new NetworkManager(wss);
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
-  ws.on('close', () => console.log('Client disconnected'));
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    game: 'RouCraft',
+    rooms: networkManager.getRoomCount(),
+    players: networkManager.getTotalPlayerCount(),
+  });
 });
 
 server.listen(PORT, () => {
