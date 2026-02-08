@@ -9,7 +9,13 @@ const wss = new WebSocketServer({ server });
 
 const PORT = 3001;
 
-const networkManager = new NetworkManager(wss);
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const worldsDir = path.join(__dirname, '..', 'worlds');
+
+const networkManager = new NetworkManager(wss, worldsDir);
 
 app.get('/api/health', (_req, res) => {
   res.json({

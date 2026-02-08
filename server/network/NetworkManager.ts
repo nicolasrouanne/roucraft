@@ -1,5 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { WorldManager } from '../world/WorldManager.js';
+import { NpcManager } from '../ai/NpcManager.js';
 import {
   MessageType,
   ClientMessage,
@@ -32,11 +33,15 @@ export interface Room {
   players: Map<string, PlayerInfo>;
   world: WorldManager;
   seed: number;
+  npcManager: NpcManager;
+  npcBroadcastTimer: ReturnType<typeof setInterval> | null;
+  autoSaveTimer: ReturnType<typeof setInterval> | null;
 }
 
 const MAX_PLAYERS_PER_ROOM = 8;
 const ROOM_CODE_LENGTH = 6;
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+const AUTO_SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 function generateRoomCode(): string {
   let code = '';
@@ -53,8 +58,10 @@ function generatePlayerId(): string {
 export class NetworkManager {
   private rooms: Map<string, Room> = new Map();
   private wsToPlayer: Map<WebSocket, { roomCode: string; playerId: string }> = new Map();
+  private worldsDir: string;
 
-  constructor(private wss: WebSocketServer) {
+  constructor(private wss: WebSocketServer, worldsDir: string) {
+    this.worldsDir = worldsDir;
     this.wss.on('connection', (ws) => {
       console.log('Client connected');
 
@@ -106,11 +113,26 @@ export class NetworkManager {
     const seed = Math.floor(Math.random() * 2147483647);
     const playerId = generatePlayerId();
 
+    const world = new WorldManager(seed);
+
+    const npcManager = new NpcManager(world, seed, (x, y, z, type) => {
+      const notification: BlockChangedMessage = {
+        type: MessageType.BlockChanged,
+        x, y, z,
+        blockType: type,
+        playerId: 'npc',
+      };
+      this.broadcastToRoom(code, notification);
+    });
+
     const room: Room = {
       code,
       players: new Map(),
-      world: new WorldManager(seed),
+      world,
       seed,
+      npcManager,
+      npcBroadcastTimer: null,
+      autoSaveTimer: null,
     };
 
     const spawnX = 0;
@@ -129,6 +151,19 @@ export class NetworkManager {
 
     this.rooms.set(code, room);
     this.wsToPlayer.set(ws, { roomCode: code, playerId });
+
+    // Start NPC AI and broadcast loop
+    npcManager.start();
+    room.npcBroadcastTimer = setInterval(() => {
+      if (room.players.size > 0) {
+        this.broadcastToRoom(code, npcManager.getNpcUpdateMessage());
+      }
+    }, 500);
+
+    // Auto-save every 5 minutes
+    room.autoSaveTimer = setInterval(() => {
+      room.world.save(this.worldsDir, code);
+    }, AUTO_SAVE_INTERVAL);
 
     const response: RoomCreatedMessage = {
       type: MessageType.RoomCreated,
@@ -227,6 +262,17 @@ export class NetworkManager {
       console.log(`${playerName} left room ${roomCode} (${room.players.size}/${MAX_PLAYERS_PER_ROOM})`);
 
       if (room.players.size === 0) {
+        room.npcManager.stop();
+        if (room.npcBroadcastTimer) {
+          clearInterval(room.npcBroadcastTimer);
+          room.npcBroadcastTimer = null;
+        }
+        if (room.autoSaveTimer) {
+          clearInterval(room.autoSaveTimer);
+          room.autoSaveTimer = null;
+        }
+        // Save world before deleting room
+        room.world.save(this.worldsDir, roomCode);
         this.rooms.delete(roomCode);
         console.log(`Room ${roomCode} deleted (empty)`);
       } else {

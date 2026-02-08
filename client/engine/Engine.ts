@@ -6,6 +6,8 @@ import { HUD } from '../ui/HUD';
 import { SkySystem } from '../rendering/SkySystem';
 import { BlockParticles } from '../rendering/BlockParticles';
 import { NPCRenderer } from '../entities/NPCRenderer';
+import { SoundManager } from './SoundManager';
+import { type GameSettings, loadSettings } from './Settings';
 import type { NpcUpdateMessage } from '../../shared/Protocol';
 
 const SKY_COLOR = 0x87CEEB;
@@ -24,6 +26,7 @@ export class Engine {
   private skySystem!: SkySystem;
   private blockParticles!: BlockParticles;
   private npcRenderer!: NPCRenderer;
+  soundManager!: SoundManager;
   private lastNpcData: NpcUpdateMessage['npcs'] = [];
   private lastTime = 0;
 
@@ -118,7 +121,13 @@ export class Engine {
       this.hud.hide();
     }
 
+    this.npcRenderer.update(this.lastNpcData, dt);
+
     this.hud.updateFps();
     this.hud.updateCoords(pos.x, pos.y, pos.z);
+  }
+
+  handleNpcUpdate(data: NpcUpdateMessage): void {
+    this.lastNpcData = data.npcs;
   }
 }
