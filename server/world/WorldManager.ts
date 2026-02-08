@@ -9,6 +9,7 @@ import {
   chunkKey,
 } from '../../shared/ChunkConstants.js';
 import { TerrainGenerator } from './TerrainGenerator.js';
+import { saveWorld, loadWorld } from './WorldSave.js';
 
 export class WorldManager {
   readonly seed: number;
@@ -18,6 +19,18 @@ export class WorldManager {
   constructor(seed: number) {
     this.seed = seed;
     this.terrainGenerator = new TerrainGenerator(seed);
+  }
+
+  save(worldsDir: string, roomCode: string): void {
+    if (this.modifiedChunks.size === 0) return;
+    saveWorld(worldsDir, roomCode, this.seed, this.modifiedChunks);
+  }
+
+  loadSave(worldsDir: string, roomCode: string): boolean {
+    const data = loadWorld(worldsDir, roomCode);
+    if (!data) return false;
+    this.modifiedChunks = data.modifiedChunks;
+    return true;
   }
 
   getChunk(cx: number, cy: number, cz: number): Uint8Array {
