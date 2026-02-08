@@ -1,27 +1,18 @@
+// Web Worker for chunk meshing - runs greedy meshing off the main thread
+// This file is loaded as a module worker via Vite's worker support
+
 import { BlockType, BLOCK_PROPERTIES } from '../../shared/BlockTypes';
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '../../shared/ChunkConstants';
 
-export interface ChunkNeighbors {
-  px?: Uint8Array; // +x
-  nx?: Uint8Array; // -x
-  py?: Uint8Array; // +y
-  ny?: Uint8Array; // -y
-  pz?: Uint8Array; // +z
-  nz?: Uint8Array; // -z
+interface ChunkNeighbors {
+  px?: Uint8Array;
+  nx?: Uint8Array;
+  py?: Uint8Array;
+  ny?: Uint8Array;
+  pz?: Uint8Array;
+  nz?: Uint8Array;
 }
 
-export interface MeshData {
-  positions: Float32Array;
-  normals: Float32Array;
-  colors: Float32Array;
-  indices: Uint32Array;
-  waterPositions: Float32Array;
-  waterNormals: Float32Array;
-  waterColors: Float32Array;
-  waterIndices: Uint32Array;
-}
-
-// AO brightness levels: 0 = fully occluded, 3 = fully lit
 const AO_CURVE = [0.4, 0.6, 0.8, 1.0];
 
 function getBlock(
@@ -34,24 +25,12 @@ function getBlock(
   if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_HEIGHT && z >= 0 && z < CHUNK_SIZE) {
     return data[blockIndex(x, y, z)];
   }
-  if (x >= CHUNK_SIZE && neighbors.px) {
-    return neighbors.px[blockIndex(x - CHUNK_SIZE, y, z)];
-  }
-  if (x < 0 && neighbors.nx) {
-    return neighbors.nx[blockIndex(x + CHUNK_SIZE, y, z)];
-  }
-  if (y >= CHUNK_HEIGHT && neighbors.py) {
-    return neighbors.py[blockIndex(x, y - CHUNK_HEIGHT, z)];
-  }
-  if (y < 0 && neighbors.ny) {
-    return neighbors.ny[blockIndex(x, y + CHUNK_HEIGHT, z)];
-  }
-  if (z >= CHUNK_SIZE && neighbors.pz) {
-    return neighbors.pz[blockIndex(x, y, z - CHUNK_SIZE)];
-  }
-  if (z < 0 && neighbors.nz) {
-    return neighbors.nz[blockIndex(x, y, z + CHUNK_SIZE)];
-  }
+  if (x >= CHUNK_SIZE && neighbors.px) return neighbors.px[blockIndex(x - CHUNK_SIZE, y, z)];
+  if (x < 0 && neighbors.nx) return neighbors.nx[blockIndex(x + CHUNK_SIZE, y, z)];
+  if (y >= CHUNK_HEIGHT && neighbors.py) return neighbors.py[blockIndex(x, y - CHUNK_HEIGHT, z)];
+  if (y < 0 && neighbors.ny) return neighbors.ny[blockIndex(x, y + CHUNK_HEIGHT, z)];
+  if (z >= CHUNK_SIZE && neighbors.pz) return neighbors.pz[blockIndex(x, y, z - CHUNK_SIZE)];
+  if (z < 0 && neighbors.nz) return neighbors.nz[blockIndex(x, y, z + CHUNK_SIZE)];
   return BlockType.Air;
 }
 
@@ -61,54 +40,36 @@ function isSolid(blockType: BlockType): boolean {
 
 function getBlockColor(blockType: BlockType, faceIndex: number): [number, number, number] {
   const props = BLOCK_PROPERTIES[blockType];
-  // faceIndex 2 = +Y (top), 3 = -Y (bottom)
   if (faceIndex === 2 && props.colorTop) return props.colorTop;
   if (faceIndex === 3 && props.colorBottom) return props.colorBottom;
   return props.color;
 }
 
-// Compute AO for a vertex based on 3 neighbors (side1, side2, corner)
 function vertexAO(side1: boolean, side2: boolean, corner: boolean): number {
   if (side1 && side2) return 0;
   return 3 - ((side1 ? 1 : 0) + (side2 ? 1 : 0) + (corner ? 1 : 0));
 }
 
-// Face directions: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z
-// For each face, define the tangent (u) and bitangent (v) axes, plus the face normal direction.
-// We iterate slices along the normal axis, and within each slice, sweep u and v.
-
 interface FaceDef {
-  // Axis indices: d=normal axis, u=tangent axis, v=bitangent axis
-  d: number; // 0=x, 1=y, 2=z
+  d: number;
   u: number;
   v: number;
-  // Normal direction along d axis: +1 or -1
   sign: number;
-  // Face index for color lookup (matches original: 0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z)
   faceIdx: number;
-  // Normal vector
   normal: [number, number, number];
 }
 
 const FACE_DEFS: FaceDef[] = [
-  // +X: slice along x, sweep z (u) and y (v)
   { d: 0, u: 2, v: 1, sign: 1, faceIdx: 0, normal: [1, 0, 0] },
-  // -X: slice along x, sweep z (u) and y (v)
   { d: 0, u: 2, v: 1, sign: -1, faceIdx: 1, normal: [-1, 0, 0] },
-  // +Y: slice along y, sweep x (u) and z (v)
   { d: 1, u: 0, v: 2, sign: 1, faceIdx: 2, normal: [0, 1, 0] },
-  // -Y: slice along y, sweep x (u) and z (v)
   { d: 1, u: 0, v: 2, sign: -1, faceIdx: 3, normal: [0, -1, 0] },
-  // +Z: slice along z, sweep x (u) and y (v)
   { d: 2, u: 0, v: 1, sign: 1, faceIdx: 4, normal: [0, 0, 1] },
-  // -Z: slice along z, sweep x (u) and y (v)
   { d: 2, u: 0, v: 1, sign: -1, faceIdx: 5, normal: [0, 0, -1] },
 ];
 
-// Sizes for each axis: x=CHUNK_SIZE, y=CHUNK_HEIGHT, z=CHUNK_SIZE
 const AXIS_SIZE = [CHUNK_SIZE, CHUNK_HEIGHT, CHUNK_SIZE];
 
-// Check if a face should be visible (neighbor is air/transparent and not the same transparent block)
 function shouldShowFace(blockType: BlockType, neighborType: BlockType): boolean {
   if (neighborType === BlockType.Air) return true;
   const neighborProps = BLOCK_PROPERTIES[neighborType];
@@ -116,13 +77,10 @@ function shouldShowFace(blockType: BlockType, neighborType: BlockType): boolean 
   return false;
 }
 
-export function meshChunk(
+function meshChunkData(
   chunkData: Uint8Array,
   neighbors: ChunkNeighbors,
-  cx: number,
-  cy: number,
-  cz: number,
-): MeshData | null {
+) {
   const positions: number[] = [];
   const normals: number[] = [];
   const colors: number[] = [];
@@ -135,45 +93,34 @@ export function meshChunk(
   const waterIndices: number[] = [];
   let waterVertexCount = 0;
 
-  const sizeD = AXIS_SIZE;
-
   for (const face of FACE_DEFS) {
-    const dSize = sizeD[face.d];
-    const uSize = sizeD[face.u];
-    const vSize = sizeD[face.v];
-    const mask = new Int32Array(uSize * vSize); // stores block type (or 0 for no face)
+    const dSize = AXIS_SIZE[face.d];
+    const uSize = AXIS_SIZE[face.u];
+    const vSize = AXIS_SIZE[face.v];
+    const mask = new Int32Array(uSize * vSize);
 
     for (let d = 0; d < dSize; d++) {
-      // Build the mask for this slice
       for (let v = 0; v < vSize; v++) {
         for (let u = 0; u < uSize; u++) {
-          // Compute block coordinates
           const pos = [0, 0, 0];
           pos[face.d] = d;
           pos[face.u] = u;
           pos[face.v] = v;
 
           const blockType = chunkData[blockIndex(pos[0], pos[1], pos[2])] as BlockType;
-
           if (blockType === BlockType.Air) {
             mask[u + v * uSize] = 0;
             continue;
           }
 
-          // Check neighbor in the normal direction
           const nPos = [pos[0], pos[1], pos[2]];
           nPos[face.d] += face.sign;
           const neighborType = getBlock(chunkData, neighbors, nPos[0], nPos[1], nPos[2]);
 
-          if (shouldShowFace(blockType, neighborType)) {
-            mask[u + v * uSize] = blockType;
-          } else {
-            mask[u + v * uSize] = 0;
-          }
+          mask[u + v * uSize] = shouldShowFace(blockType, neighborType) ? blockType : 0;
         }
       }
 
-      // Greedy merge the mask
       const visited = new Uint8Array(uSize * vSize);
 
       for (let v = 0; v < vSize; v++) {
@@ -184,13 +131,11 @@ export function meshChunk(
           const blockType = mask[idx] as BlockType;
           const isWater = blockType === BlockType.Water;
 
-          // Extend width along u
           let w = 1;
           while (u + w < uSize && mask[(u + w) + v * uSize] === blockType && !visited[(u + w) + v * uSize]) {
             w++;
           }
 
-          // Extend height along v
           let h = 1;
           let done = false;
           while (v + h < vSize && !done) {
@@ -203,70 +148,30 @@ export function meshChunk(
             if (!done) h++;
           }
 
-          // Mark as visited
           for (let dv = 0; dv < h; dv++) {
             for (let du = 0; du < w; du++) {
               visited[(u + du) + (v + dv) * uSize] = 1;
             }
           }
 
-          // Emit the quad
-          // Corner positions in block space
           const basePos = [0, 0, 0];
           basePos[face.d] = d + (face.sign > 0 ? 1 : 0);
           basePos[face.u] = u;
           basePos[face.v] = v;
 
-          // uDir and vDir are unit vectors along u and v axes
           const uDir = [0, 0, 0];
           const vDir = [0, 0, 0];
           uDir[face.u] = 1;
           vDir[face.v] = 1;
 
-          // 4 corners of the quad:
-          // v0 = base
-          // v1 = base + w*uDir
-          // v2 = base + w*uDir + h*vDir
-          // v3 = base + h*vDir
           const v0 = [basePos[0], basePos[1], basePos[2]];
           const v1 = [basePos[0] + w * uDir[0], basePos[1] + w * uDir[1], basePos[2] + w * uDir[2]];
           const v2 = [basePos[0] + w * uDir[0] + h * vDir[0], basePos[1] + w * uDir[1] + h * vDir[1], basePos[2] + w * uDir[2] + h * vDir[2]];
           const v3 = [basePos[0] + h * vDir[0], basePos[1] + h * vDir[1], basePos[2] + h * vDir[2]];
 
-          // Compute AO for each corner vertex
-          // We need to check neighbors in a coordinate system relative to the face
           const ao = [0, 0, 0, 0];
-
-          // For AO, check the 3 neighbors at each corner (side1, side2, corner) in the plane perpendicular to the face normal
-          // We sample blocks around the face vertex positions in the chunk data
-          // For each corner, we look at blocks adjacent to the face at that corner
-
-          // Corner 0: (u, v) = (u, v)
-          // Corner 1: (u, v) = (u+w, v)
-          // Corner 2: (u, v) = (u+w, v+h)
-          // Corner 3: (u, v) = (u, v+h)
-          const cornerUV = [
-            [u, v],
-            [u + w, v],
-            [u + w, v + h],
-            [u, v + h],
-          ];
-
-          // For each corner, the AO neighbors:
-          // side1 is block at (corner_u + uOffset, corner_v, d) offset
-          // side2 is block at (corner_u, corner_v + vOffset, d) offset
-          // corner block at (corner_u + uOffset, corner_v + vOffset, d)
-          // The offsets depend on which corner:
-          //   corner0 (u,v): u-1, v-1
-          //   corner1 (u+w,v): u+0, v-1 (i.e. the block at u+w is to the right)
-          //   corner2 (u+w,v+h): u+0, v+0
-          //   corner3 (u,v+h): u-1, v+0
-          const cornerOffsets = [
-            [-1, -1], // corner 0: both sides are at u-1, v-1
-            [0, -1],  // corner 1
-            [0, 0],   // corner 2
-            [-1, 0],  // corner 3
-          ];
+          const cornerUV = [[u, v], [u + w, v], [u + w, v + h], [u, v + h]];
+          const cornerOffsets = [[-1, -1], [0, -1], [0, 0], [-1, 0]];
 
           for (let c = 0; c < 4; c++) {
             const cu = cornerUV[c][0];
@@ -274,25 +179,18 @@ export function meshChunk(
             const ou = cornerOffsets[c][0];
             const ov = cornerOffsets[c][1];
 
-            // The face is at d (+sign from block). Check blocks on the same side of the face.
-            const checkPos = [0, 0, 0];
-            checkPos[face.d] = d + (face.sign > 0 ? 1 : 0);
-
-            // side1: offset along u
             const s1Pos = [0, 0, 0];
             s1Pos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
             s1Pos[face.u] = cu + ou;
             s1Pos[face.v] = cv;
             const s1 = isSolid(getBlock(chunkData, neighbors, s1Pos[0], s1Pos[1], s1Pos[2]));
 
-            // side2: offset along v
             const s2Pos = [0, 0, 0];
             s2Pos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
             s2Pos[face.u] = cu;
             s2Pos[face.v] = cv + ov;
             const s2 = isSolid(getBlock(chunkData, neighbors, s2Pos[0], s2Pos[1], s2Pos[2]));
 
-            // corner: offset along both u and v
             const cPos = [0, 0, 0];
             cPos[face.d] = d + (face.sign > 0 ? 0 : -1) + face.sign;
             cPos[face.u] = cu + ou;
@@ -305,9 +203,7 @@ export function meshChunk(
           const color = getBlockColor(blockType, face.faceIdx);
 
           if (isWater) {
-            // Water goes into separate buffers
-            const yOffset = face.faceIdx === 2 ? -0.1 : 0; // lower top face slightly
-
+            const yOffset = face.faceIdx === 2 ? -0.1 : 0;
             for (let i = 0; i < 4; i++) {
               const vert = [v0, v1, v2, v3][i];
               waterPositions.push(vert[0], vert[1] + yOffset, vert[2]);
@@ -315,24 +211,13 @@ export function meshChunk(
               const aoFactor = AO_CURVE[ao[i]];
               waterColors.push(color[0] * aoFactor, color[1] * aoFactor, color[2] * aoFactor);
             }
-
-            // AO-aware quad triangulation: flip diagonal if needed
             if (ao[0] + ao[2] > ao[1] + ao[3]) {
-              // Flip: triangles 1-2-3, 1-3-0
-              waterIndices.push(
-                waterVertexCount + 1, waterVertexCount + 2, waterVertexCount + 3,
-                waterVertexCount + 1, waterVertexCount + 3, waterVertexCount,
-              );
+              waterIndices.push(waterVertexCount + 1, waterVertexCount + 2, waterVertexCount + 3, waterVertexCount + 1, waterVertexCount + 3, waterVertexCount);
             } else {
-              // Normal: triangles 0-1-2, 0-2-3
-              waterIndices.push(
-                waterVertexCount, waterVertexCount + 1, waterVertexCount + 2,
-                waterVertexCount, waterVertexCount + 2, waterVertexCount + 3,
-              );
+              waterIndices.push(waterVertexCount, waterVertexCount + 1, waterVertexCount + 2, waterVertexCount, waterVertexCount + 2, waterVertexCount + 3);
             }
             waterVertexCount += 4;
           } else {
-            // Opaque geometry
             for (let i = 0; i < 4; i++) {
               const vert = [v0, v1, v2, v3][i];
               positions.push(vert[0], vert[1], vert[2]);
@@ -340,18 +225,10 @@ export function meshChunk(
               const aoFactor = AO_CURVE[ao[i]];
               colors.push(color[0] * aoFactor, color[1] * aoFactor, color[2] * aoFactor);
             }
-
-            // AO-aware quad triangulation: flip diagonal if needed
             if (ao[0] + ao[2] > ao[1] + ao[3]) {
-              indices.push(
-                vertexCount + 1, vertexCount + 2, vertexCount + 3,
-                vertexCount + 1, vertexCount + 3, vertexCount,
-              );
+              indices.push(vertexCount + 1, vertexCount + 2, vertexCount + 3, vertexCount + 1, vertexCount + 3, vertexCount);
             } else {
-              indices.push(
-                vertexCount, vertexCount + 1, vertexCount + 2,
-                vertexCount, vertexCount + 2, vertexCount + 3,
-              );
+              indices.push(vertexCount, vertexCount + 1, vertexCount + 2, vertexCount, vertexCount + 2, vertexCount + 3);
             }
             vertexCount += 4;
           }
@@ -373,3 +250,38 @@ export function meshChunk(
     waterIndices: new Uint32Array(waterIndices),
   };
 }
+
+// Worker message handler
+self.onmessage = (e: MessageEvent) => {
+  const { id, chunkData, neighbors, cx, cy, cz } = e.data;
+
+  const data = new Uint8Array(chunkData);
+  const neighborArrays: ChunkNeighbors = {};
+  if (neighbors.px) neighborArrays.px = new Uint8Array(neighbors.px);
+  if (neighbors.nx) neighborArrays.nx = new Uint8Array(neighbors.nx);
+  if (neighbors.py) neighborArrays.py = new Uint8Array(neighbors.py);
+  if (neighbors.ny) neighborArrays.ny = new Uint8Array(neighbors.ny);
+  if (neighbors.pz) neighborArrays.pz = new Uint8Array(neighbors.pz);
+  if (neighbors.nz) neighborArrays.nz = new Uint8Array(neighbors.nz);
+
+  const result = meshChunkData(data, neighborArrays);
+
+  if (!result) {
+    (self as unknown as Worker).postMessage({ id, result: null });
+    return;
+  }
+
+  // Transfer buffers for zero-copy performance
+  const transferable = [
+    result.positions.buffer,
+    result.normals.buffer,
+    result.colors.buffer,
+    result.indices.buffer,
+    result.waterPositions.buffer,
+    result.waterNormals.buffer,
+    result.waterColors.buffer,
+    result.waterIndices.buffer,
+  ];
+
+  (self as unknown as Worker).postMessage({ id, result }, transferable);
+};
