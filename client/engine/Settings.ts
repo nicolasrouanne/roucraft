@@ -1,14 +1,14 @@
 const STORAGE_KEY = 'roucraft-settings';
 
 export interface GameSettings {
-  renderDistance: number; // 4-12 chunks
+  renderDistance: number; // 2-12 chunks
   fov: number;           // 60-110
-  mouseSensitivity: number; // 0.5-3.0 multiplier
+  mouseSensitivity: number; // 0.1-2.0 multiplier
   volume: number;        // 0-1
 }
 
 const DEFAULTS: GameSettings = {
-  renderDistance: 6,
+  renderDistance: 4,
   fov: 75,
   mouseSensitivity: 1.0,
   volume: 0.5,
@@ -20,9 +20,9 @@ export function loadSettings(): GameSettings {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        renderDistance: clamp(parsed.renderDistance ?? DEFAULTS.renderDistance, 4, 12),
+        renderDistance: clamp(parsed.renderDistance ?? DEFAULTS.renderDistance, 2, 12),
         fov: clamp(parsed.fov ?? DEFAULTS.fov, 60, 110),
-        mouseSensitivity: clamp(parsed.mouseSensitivity ?? DEFAULTS.mouseSensitivity, 0.5, 3.0),
+        mouseSensitivity: clamp(parsed.mouseSensitivity ?? DEFAULTS.mouseSensitivity, 0.1, 2.0),
         volume: clamp(parsed.volume ?? DEFAULTS.volume, 0, 1),
       };
     }

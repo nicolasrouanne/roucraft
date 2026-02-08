@@ -6,7 +6,7 @@ import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '../../shared/ChunkConstant
 const BASE_HEIGHT = 64;
 const AMPLITUDE = 30;
 const WATER_LEVEL = 60;
-const CAVE_THRESHOLD = 0.6;
+const CAVE_THRESHOLD = 0.55;
 const CAVE_MAX_Y = 50;
 
 const OCTAVES = [
@@ -96,11 +96,11 @@ export class TerrainGenerator {
           // Ores: placed randomly in remaining stone
           if (block === BlockType.Stone) {
             const rnd = blockHash(wx, wy, wz, this.seed);
-            if (wy < 20 && rnd < 0.003) {
+            if (wy < 20 && rnd < 0.005) {
               block = BlockType.Gold;
-            } else if (wy < 40 && rnd < 0.008) {
+            } else if (wy < 40 && rnd < 0.01) {
               block = BlockType.Iron;
-            } else if (wy < 60 && rnd < 0.015) {
+            } else if (wy < 60 && rnd < 0.02) {
               block = BlockType.Coal;
             }
           }
@@ -128,7 +128,7 @@ export class TerrainGenerator {
             const surfaceBlock = data[blockIndex(x, surfaceLy, z)];
             if (surfaceBlock === BlockType.Grass) {
               const rnd = blockHash(wx, flowerY, wz, this.seed + 7);
-              if (rnd < 0.02) {
+              if (rnd < 0.01) {
                 data[blockIndex(x, ly, z)] = BlockType.Flower;
               }
             }

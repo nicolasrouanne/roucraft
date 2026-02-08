@@ -81,9 +81,9 @@ export class SettingsScreen {
           font-family: 'Segoe UI', sans-serif;
         ">Settings</h2>
 
-        ${this.sliderRow('render-distance', 'Render Distance', 4, 12, 1, this.settings.renderDistance, ' chunks')}
+        ${this.sliderRow('render-distance', 'Render Distance', 2, 12, 1, this.settings.renderDistance, ' chunks')}
         ${this.sliderRow('fov', 'Field of View', 60, 110, 5, this.settings.fov, '')}
-        ${this.sliderRow('mouse-sens', 'Mouse Sensitivity', 0.5, 3.0, 0.1, this.settings.mouseSensitivity, 'x')}
+        ${this.sliderRow('mouse-sens', 'Mouse Sensitivity', 0.1, 2.0, 0.1, this.settings.mouseSensitivity, 'x')}
         ${this.sliderRow('volume', 'Volume', 0, 100, 5, Math.round(this.settings.volume * 100), '%')}
 
         <div style="display: flex; gap: 10px; margin-top: 24px;">
