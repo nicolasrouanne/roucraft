@@ -168,7 +168,6 @@ function wireNetworkEvents(): void {
   });
 
   network.on('npcUpdate', (msg) => {
-    // NPC updates will be handled when NPC system is implemented
-    // EntityManager can be extended to manage NPCs
+    engine!.handleNpcUpdate(msg);
   });
 }
