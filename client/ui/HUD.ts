@@ -62,8 +62,41 @@ export class HUD {
     rcs.borderRadius = '6px';
     rcs.letterSpacing = '2px';
     rcs.display = 'none';
-    rcs.pointerEvents = 'none';
-    this.container.appendChild(this.roomCodeElement);
+    rcs.cursor = 'pointer';
+    rcs.transition = 'all 0.2s ease';
+    rcs.userSelect = 'text';
+    rcs.zIndex = '1000'; // Keep above other UI elements
+    rcs.title = 'Click to copy room code';
+    // Append to body instead of HUD container so it stays visible
+    document.body.appendChild(this.roomCodeElement);
+
+    // Make room code clickable to copy
+    this.roomCodeElement.addEventListener('click', () => {
+      const code = this.roomCodeElement.textContent?.replace('Room: ', '') || '';
+      if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+          // Visual feedback
+          const original = this.roomCodeElement.textContent;
+          this.roomCodeElement.textContent = 'Copied!';
+          this.roomCodeElement.style.backgroundColor = 'rgba(50, 255, 50, 0.3)';
+          setTimeout(() => {
+            this.roomCodeElement.textContent = original;
+            this.roomCodeElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+          }, 1000);
+        });
+      }
+    });
+
+    // Hover effect
+    this.roomCodeElement.addEventListener('mouseenter', () => {
+      this.roomCodeElement.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      this.roomCodeElement.style.transform = 'scale(1.05)';
+    });
+
+    this.roomCodeElement.addEventListener('mouseleave', () => {
+      this.roomCodeElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      this.roomCodeElement.style.transform = 'scale(1)';
+    });
 
     this.coordsElement = document.createElement('div');
     const cs = this.coordsElement.style;
