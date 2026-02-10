@@ -54,7 +54,16 @@ export class NetworkClient {
   }
 
   connect(url?: string): void {
-    this.url = url ?? `ws://${window.location.hostname}:3001`;
+    // Use provided URL, environment variable, or default to local development
+    if (url) {
+      this.url = url;
+    } else if (import.meta.env.VITE_WS_URL) {
+      this.url = import.meta.env.VITE_WS_URL;
+    } else {
+      // Default for local development - use wss:// for HTTPS, ws:// for HTTP
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      this.url = `${protocol}//${window.location.hostname}:3001`;
+    }
     this.isOffline = false;
     this.doConnect();
   }
