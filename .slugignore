@@ -1,0 +1,6 @@
+# Ignore client-side files during Scalingo deployment
+client/
+dist/client/
+*.md
+.env.example
+scripts/
