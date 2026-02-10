@@ -66,23 +66,28 @@ export class HUD {
     rcs.transition = 'all 0.2s ease';
     rcs.userSelect = 'text';
     rcs.zIndex = '1000'; // Keep above other UI elements
-    rcs.title = 'Click to copy room code';
+    rcs.title = 'Click to copy shareable link';
     // Append to body instead of HUD container so it stays visible
     document.body.appendChild(this.roomCodeElement);
 
-    // Make room code clickable to copy
+    // Make room code clickable to copy full URL
     this.roomCodeElement.addEventListener('click', () => {
       const code = this.roomCodeElement.textContent?.replace('Room: ', '') || '';
       if (code) {
-        navigator.clipboard.writeText(code).then(() => {
+        // Copy the full URL with room parameter
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', code);
+        const shareUrl = url.toString();
+
+        navigator.clipboard.writeText(shareUrl).then(() => {
           // Visual feedback
           const original = this.roomCodeElement.textContent;
-          this.roomCodeElement.textContent = 'Copied!';
+          this.roomCodeElement.textContent = 'Link Copied!';
           this.roomCodeElement.style.backgroundColor = 'rgba(50, 255, 50, 0.3)';
           setTimeout(() => {
             this.roomCodeElement.textContent = original;
             this.roomCodeElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-          }, 1000);
+          }, 1500);
         });
       }
     });

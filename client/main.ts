@@ -59,6 +59,10 @@ function startMultiplayerGame(mode: 'create' | 'join', name: string, roomCode?: 
     if (engine && engine.hud) {
       engine.hud.showRoomCode(msg.roomCode);
     }
+    // Add room code to URL for easy sharing
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', msg.roomCode);
+    window.history.replaceState({}, '', url.toString());
   });
 
   network.on('roomJoined', (msg) => {

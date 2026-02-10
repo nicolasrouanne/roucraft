@@ -210,6 +210,15 @@ export class ConnectionScreen {
     const joinBtn = this.container.querySelector('#cs-join') as HTMLButtonElement;
     const soloBtn = this.container.querySelector('#cs-solo') as HTMLButtonElement;
 
+    // Check URL for room parameter and auto-fill
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+    if (roomFromUrl) {
+      codeInput.value = roomFromUrl.toUpperCase();
+      // Focus on name input if room is pre-filled
+      nameInput.focus();
+    }
+
     // Auto-uppercase room code input
     codeInput.addEventListener('input', () => {
       codeInput.value = codeInput.value.toUpperCase();
