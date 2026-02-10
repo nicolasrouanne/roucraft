@@ -8,6 +8,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "build": "npm run build:server",
+    "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "tsx server/index.ts"
   },
