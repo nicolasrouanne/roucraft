@@ -14,6 +14,7 @@ import {
   NpcUpdateMessage,
   WorldInfoMessage,
 } from '../../shared/Protocol';
+import { getWebSocketUrl } from '../config/environment';
 
 type EventMap = {
   roomCreated: RoomCreatedMessage;
@@ -54,7 +55,7 @@ export class NetworkClient {
   }
 
   connect(url?: string): void {
-    this.url = url ?? `ws://${window.location.hostname}:3001`;
+    this.url = url ?? getWebSocketUrl();
     this.isOffline = false;
     this.doConnect();
   }
