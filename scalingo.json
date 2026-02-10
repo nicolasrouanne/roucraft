@@ -1,0 +1,20 @@
+{
+  "name": "roucraft-server",
+  "stack": "scalingo-22",
+  "formation": {
+    "web": {
+      "amount": 1,
+      "size": "S"
+    }
+  },
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    },
+    "PORT": {
+      "description": "Port for the server",
+      "generator": "PORT"
+    }
+  }
+}
