@@ -20,6 +20,7 @@ export class HUD {
   private selectedIndex = 0;
   private fpsElement: HTMLDivElement;
   private coordsElement: HTMLDivElement;
+  private roomCodeElement: HTMLDivElement;
   private debugVisible = false;
   private frameCount = 0;
   private lastFpsTime = 0;
@@ -44,6 +45,25 @@ export class HUD {
     fs.display = 'none';
     fs.pointerEvents = 'none';
     this.container.appendChild(this.fpsElement);
+
+    // Room code display
+    this.roomCodeElement = document.createElement('div');
+    const rcs = this.roomCodeElement.style;
+    rcs.position = 'absolute';
+    rcs.top = '8px';
+    rcs.right = '8px';
+    rcs.color = '#6bff6b';
+    rcs.fontSize = '20px';
+    rcs.fontFamily = 'monospace';
+    rcs.fontWeight = 'bold';
+    rcs.textShadow = '2px 2px 4px black';
+    rcs.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    rcs.padding = '8px 12px';
+    rcs.borderRadius = '6px';
+    rcs.letterSpacing = '2px';
+    rcs.display = 'none';
+    rcs.pointerEvents = 'none';
+    this.container.appendChild(this.roomCodeElement);
 
     this.coordsElement = document.createElement('div');
     const cs = this.coordsElement.style;
@@ -170,6 +190,11 @@ export class HUD {
     if (this.debugVisible) {
       this.coordsElement.textContent = `X: ${x.toFixed(1)} Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
     }
+  }
+
+  showRoomCode(code: string): void {
+    this.roomCodeElement.textContent = `Room: ${code}`;
+    this.roomCodeElement.style.display = 'block';
   }
 
   show(): void {

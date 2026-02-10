@@ -55,6 +55,10 @@ function startMultiplayerGame(mode: 'create' | 'join', name: string, roomCode?: 
     connectionScreen.hide();
     initEngine();
     wireNetworkEvents();
+    // Show room code in HUD after engine is initialized
+    if (engine && engine.hud) {
+      engine.hud.showRoomCode(msg.roomCode);
+    }
   });
 
   network.on('roomJoined', (msg) => {
